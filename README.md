@@ -31,7 +31,7 @@ This version includes multi-user support, where each user is isolated by a uniqu
 3.  Install the required dependencies:
 
     ```bash
-    npm install express multer cookie-parser express-session uuid winston winston-daily-rotate-file
+    npm install
     ```
 
 ## How to Run

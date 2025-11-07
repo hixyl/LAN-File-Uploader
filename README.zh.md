@@ -31,7 +31,7 @@
 3.  安装所需的依赖：
 
     ```bash
-    npm install express multer cookie-parser express-session uuid winston winston-daily-rotate-file
+    npm install
     ```
 
 ## 如何运行
