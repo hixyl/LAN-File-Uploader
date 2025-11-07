@@ -110,6 +110,7 @@ router.get('/', async (req, res) => {
             input[type="file"] { display: block; margin-bottom: 12px; }
             button { background: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
             button:hover { background: #0056b3; }
+            button:disabled { background: #9db2c9; cursor: not-allowed; } /* Updated disabled style */
             ul { list-style: none; padding-left: 0; }
             li { background: #eee; padding: 10px 12px; margin-bottom: 5px; border-radius: 4px; font-family: "Menlo", "Consolas", monospace; }
             li a { text-decoration: none; color: #0056b3; font-weight: 500; }
@@ -178,7 +179,7 @@ router.get('/', async (req, res) => {
             <form action="/upload" method="POST" enctype="multipart/form-data">
                 <label for="fileInput">${t.filesUploadLabel}</label>
                 <input type="file" id="fileInput" name="uploadedFiles" multiple>
-                <button type="submit">${t.uploadButton}</button>
+                <button type="submit" id="fileUploadBtn">${t.uploadButton}</button>
             </form>
 
             <div class="form-separator"></div>
@@ -186,7 +187,7 @@ router.get('/', async (req, res) => {
             <form action="/upload" method="POST" enctype="multipart/form-data">
                 <label for="folderInput">${t.folderUploadLabel}</label>
                 <input type="file" id="folderInput" name="uploadedFiles" webkitdirectory directory multiple>
-                <button type="submit">${t.uploadButton}</button>
+                <button type="submit" id="folderUploadBtn">${t.uploadButton}</button>
             </form>
 
             <h2>${t.fileListHeader}</h2>
@@ -253,6 +254,28 @@ router.get('/', async (req, res) => {
                     logoutModal.style.display = 'none';
                 }
             });
+
+            // --- MODIFICATION: Upload Button Disable Logic ---
+            const fileInput = document.getElementById('fileInput');
+            const fileUploadBtn = document.getElementById('fileUploadBtn');
+            const folderInput = document.getElementById('folderInput');
+            const folderUploadBtn = document.getElementById('folderUploadBtn');
+
+            // Disable buttons on page load
+            fileUploadBtn.disabled = true;
+            folderUploadBtn.disabled = true;
+
+            // Add event listener for file input
+            fileInput.addEventListener('change', () => {
+                fileUploadBtn.disabled = fileInput.files.length === 0;
+            });
+
+            // Add event listener for folder input
+            folderInput.addEventListener('change', () => {
+                folderUploadBtn.disabled = folderInput.files.length === 0;
+            });
+            // --- End of Modification ---
+
         </script>
     </body>
     </html>
