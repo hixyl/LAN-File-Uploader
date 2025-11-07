@@ -208,22 +208,71 @@ router.get('/', async (req, res) => {
         </div>
 
         <script>
-            // --- Copy UUID Logic ---
+            // --- MODIFICATION: 兼容性更好的复制 UUID 逻辑 ---
             const copyBtn = document.getElementById('copyUuidBtn');
             const uuidText = document.getElementById('currentUserUuid').textContent;
             
             copyBtn.addEventListener('click', () => {
-                navigator.clipboard.writeText(uuidText).then(() => {
-                    copyBtn.textContent = '${t.copied}';
-                    copyBtn.disabled = true;
-                    setTimeout(() => {
-                        copyBtn.textContent = '${t.copy}';
-                        copyBtn.disabled = false;
-                    }, 2000);
-                }).catch(err => {
-                    console.error('Failed to copy UUID: ', err);
-                });
+                // 优先尝试现代的 Clipboard API (在 HTTPS 和 localhost 上工作良好)
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(uuidText).then(() => {
+                        showCopiedState(copyBtn);
+                    }).catch(err => {
+                        console.error('Async clipboard failed, falling back:', err);
+                        fallbackCopyText(uuidText, copyBtn);
+                    });
+                } else {
+                    // 回退到 execCommand (适用于 HTTP 或旧版浏览器)
+                    fallbackCopyText(uuidText, copyBtn);
+                }
             });
+
+            function fallbackCopyText(text, button) {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                
+                // 样式设置，以避免在 iOS 上滚动到顶部或引起页面跳动
+                textArea.style.position = 'fixed';
+                textArea.style.top = 0;
+                textArea.style.left = 0;
+                textArea.style.width = '2em';
+                textArea.style.height = '2em';
+                textArea.style.padding = 0;
+                textArea.style.border = 'none';
+                textArea.style.outline = 'none';
+                textArea.style.boxShadow = 'none';
+                textArea.style.background = 'transparent';
+
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        showCopiedState(button);
+                    } else {
+                        console.error('Fallback copy was unsuccessful');
+                        alert('Copying failed, please copy manually.');
+                    }
+                } catch (err) {
+                    console.error('Fallback copy error:', err);
+                    alert('Copying failed, please copy manually.');
+                }
+
+                document.body.removeChild(textArea);
+            }
+
+            function showCopiedState(button) {
+                button.textContent = '${t.copied}';
+                button.disabled = true;
+                setTimeout(() => {
+                    button.textContent = '${t.copy}';
+                    button.disabled = false;
+                }, 2000);
+            }
+            // --- End of Modification ---
+
 
             // --- Logout Modal Logic ---
             const logoutBtn = document.getElementById('logoutBtn');
@@ -255,7 +304,7 @@ router.get('/', async (req, res) => {
                 }
             });
 
-            // --- MODIFICATION: Upload Button Disable Logic ---
+            // --- Upload Button Disable Logic ---
             const fileInput = document.getElementById('fileInput');
             const fileUploadBtn = document.getElementById('fileUploadBtn');
             const folderInput = document.getElementById('folderInput');
@@ -274,7 +323,7 @@ router.get('/', async (req, res) => {
             folderInput.addEventListener('change', () => {
                 folderUploadBtn.disabled = folderInput.files.length === 0;
             });
-            // --- End of Modification ---
+            // --- End of Logic ---
 
         </script>
     </body>

@@ -22,7 +22,7 @@ const logFormat = winston.format.printf(({ level, message, timestamp, ...metadat
 });
 
 const logger = winston.createLogger({
-    level: 'info',
+    level: 'info', // Logger 的最低级别：info 及以上都会被处理
     format: winston.format.combine(
         winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         winston.format.metadata(), // Gathers metadata
@@ -31,13 +31,15 @@ const logger = winston.createLogger({
     transports: [
         // Console transport
         new winston.transports.Console({
+            level: 'warn', // *** 修改点：只在控制台打印 'warn' 和 'error' 级别的日志 ***
             format: winston.format.combine(
                 winston.format.colorize(),
                 logFormat
             )
         }),
-        // File transport for all logs
+        // File transport for all logs (info 及以上)
         new winston.transports.DailyRotateFile({
+            level: 'info', // 确保 info 级别被写入文件
             filename: path.join(LOG_DIR, 'server-%DATE%.log'),
             datePattern: 'YYYY-MM-DD',
             zippedArchive: true,
