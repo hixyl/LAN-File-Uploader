@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/Users/xylsmile/Programming/private/simple-lan-server/logs/.e36d1ea2da842cb040b0900cf16076a5ab1035ed-audit.json",
+    "files": [
+        {
+            "date": 1762481135133,
+            "name": "/Users/xylsmile/Programming/private/simple-lan-server/logs/server-2025-11-07.log",
+            "hash": "f61c67b956a9148029ed84a44ab60f029199a39d5499ef4cf2312097fc8f19aa"
+        }
+    ],
+    "hashType": "sha256"
+}
