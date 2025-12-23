@@ -16,6 +16,7 @@
   "license": "ISC",
   "dependencies": {
     "cookie-parser": "^1.4.6",
+    "crypto": "^1.0.1",
     "express": "^5.1.0",
     "express-session": "^1.18.0",
     "multer": "^2.0.2",

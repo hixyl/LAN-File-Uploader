@@ -1,5 +1,5 @@
 const express = require('express');
-const { generateUuid, isValidUuid } = require('../utils');
+const { generateUserUuid, validateCredentials } = require('../utils');
 const logger = require('../logger');
 const path = require('path');
 const fs = require('fs').promises;
@@ -9,20 +9,15 @@ const router = express.Router();
 
 /**
  * GET /auth/login
- * Renders the login page.
  */
 router.get('/login', (req, res) => {
-    // If already logged in, redirect to home
     if (req.session.userUuid) {
         return res.redirect('/');
     }
 
     const { t, langKey } = res.locals;
-
-    // Get flash error message from session if it exists
-    // (This is still needed as a fallback for server-side errors)
     const error = req.session.loginError;
-    delete req.session.loginError; // Clear error after reading
+    delete req.session.loginError;
 
     res.send(`
     <!DOCTYPE html>
@@ -32,26 +27,15 @@ router.get('/login', (req, res) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>${t.title} - ${t.loginHeader}</title>
         <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 500px; margin: 40px auto; padding: 0 15px; background: #fdfdfd; color: #333; }
-            h1 { text-align: center; }
-            form { background: #f4f4f4; padding: 25px; border-radius: 8px; }
-            label { display: block; margin-bottom: 8px; font-weight: 500; }
-            input[type="text"] { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-            button { background: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; }
+            body { font-family: -apple-system, sans-serif; max-width: 400px; margin: 60px auto; padding: 0 20px; background: #fdfdfd; }
+            h1 { text-align: center; color: #333; }
+            form { background: #f4f4f4; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+            label { display: block; margin-bottom: 6px; font-weight: 500; }
+            input { width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+            button { background: #007bff; color: white; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; font-weight: 600; }
             button:hover { background: #0056b3; }
-            
-            #registerBtn { background: #28a745; margin-top: 10px; }
-            #registerBtn:hover { background: #218838; }
-
-            .error-message {
-                color: #721c24;
-                background-color: #f8d7da;
-                border: 1px solid #f5c6cb;
-                padding: 10px 15px;
-                border-radius: 4px;
-                margin-bottom: 15px;
-                text-align: center;
-            }
+            .error-message { color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 0.9em; text-align: center; }
+            .hint { font-size: 0.8em; color: #666; margin-top: -15px; margin-bottom: 15px; }
         </style>
     </head>
     <body>
@@ -60,22 +44,14 @@ router.get('/login', (req, res) => {
         ${error ? `<div class="error-message">${error}</div>` : ''}
 
         <form action="/auth/login" method="POST">
-            <label for="uuid">${t.uuidLabel}</label>
+            <label for="username">${t.usernameLabel}</label>
+            <input type="text" id="username" name="username" required autocomplete="username">
             
-            <input type="text" id="uuid" name="userUuid" 
-                   required 
-                   pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}"
-                   title="${t.invalidUuidError}">
+            <label for="password">${t.passwordLabel}</label>
+            <input type="password" id="password" name="password" required autocomplete="current-password">
             
             <button type="submit">${t.loginButton}</button>
-            <button type="button" id="registerBtn">${t.registerButton}</button>
         </form>
-
-        <script>
-            document.getElementById('registerBtn').addEventListener('click', () => {
-                window.location.href = '/auth/register';
-            });
-        </script>
     </body>
     </html>
     `);
@@ -83,58 +59,32 @@ router.get('/login', (req, res) => {
 
 /**
  * POST /auth/login
- * Handles the login form submission.
  */
 router.post('/login', (req, res) => {
-    const { userUuid } = req.body;
-    const { t } = res.locals; // Get translations
+    const { username, password } = req.body;
+    const { t } = res.locals;
 
-    // 这是一个重要的安全措施，防止有人绕过浏览器验证。
-    if (!isValidUuid(userUuid)) {
-        req.session.loginError = t.invalidUuidError;
-        return res.redirect('/auth/login');
-    }
+    // if (!validateCredentials(username, password)) {
+    //     req.session.loginError = t.invalidCredsError;
+    //     return res.redirect('/auth/login');
+    // }
     
-    // UUID format is valid, proceed with login
+    // Map user/pass to a stable UUID
+    const userUuid = generateUserUuid(username, password);
     req.session.userUuid = userUuid;
+    req.session.username = username; // Store display name
 
-    logger.info(`User login succeeded`, {
-        ip: req.ip,
-        userUuid: userUuid,
-        action: 'login'
+    logger.info(`User access granted`, {
+        action: 'login',
+        username: username,
+        userUuid: userUuid
     });
 
     res.redirect('/');
 });
 
 /**
- * GET /auth/register
- * Generates a new UUID, logs the user in, and redirects to home.
- */
-router.get('/register', async (req, res) => {
-    const { t } = res.locals;
-    try {
-        const newUuid = await generateUuid();
-        req.session.userUuid = newUuid;
-
-        logger.info(`New user registered and logged in`, {
-            ip: req.ip,
-            userUuid: newUuid,
-            action: 'register'
-        });
-
-        res.redirect('/');
-    } catch (err) {
-        logger.error('Failed to register new user', { error: err.message, ip: req.ip });
-        req.session.loginError = t.registerError;
-        res.redirect('/auth/login');
-    }
-});
-
-
-/**
  * GET /auth/logout
- * Logs the user out, deletes their files, and destroys the session.
  */
 router.get('/logout', async (req, res) => {
     const userUuid = req.session.userUuid;
@@ -142,33 +92,19 @@ router.get('/logout', async (req, res) => {
     if (userUuid) {
         const userUploadDir = path.join(UPLOAD_BASE_DIR, userUuid);
 
-        // Destroy the session first
         req.session.destroy(async (err) => {
-            if (err) {
-                logger.error('Failed to destroy session', { error: err, userUuid });
-            }
+            if (err) logger.error('Session destruction failed', { error: err, userUuid });
 
-            // Asynchronously delete the user's file directory
             try {
                 await fs.rm(userUploadDir, { recursive: true, force: true });
-                logger.info(`Successfully deleted user directory`, {
-                    userUuid,
-                    action: 'logout-delete',
-                    path: userUploadDir
-                });
+                logger.info(`User directory deleted on logout`, { userUuid, action: 'logout-delete' });
             } catch (fsErr) {
-                if (fsErr.code !== 'ENOENT') { // Ignore "Not Found" errors
-                    logger.error('Failed to delete user directory', {
-                        error: fsErr,
-                        userUuid,
-                        path: userUploadDir
-                    });
+                if (fsErr.code !== 'ENOENT') {
+                    logger.error('Failed to clean user directory', { error: fsErr, userUuid });
                 }
             }
-            
             res.redirect('/auth/login');
         });
-
     } else {
         res.redirect('/auth/login');
     }

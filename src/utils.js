@@ -1,12 +1,11 @@
 const os = require('os');
 const { readdir } = require('fs').promises;
 const path = require('path');
+const crypto = require('crypto');
 const translations = require('./translations');
 
 /**
  * Detects the preferred language from the request header.
- * @param {import('express').Request} req - The Express request object.
- * @returns {('en'|'zh')} The determined language key.
  */
 function getLang(req) {
     const langHeader = req.headers['accept-language'] || 'en';
@@ -14,8 +13,7 @@ function getLang(req) {
 }
 
 /**
- * Gets all non-internal IPv4 addresses of the host machine.
- * @returns {string[]} An array of local IP addresses.
+ * Gets local IPv4 addresses.
  */
 function getLocalIPs() {
     const networkInterfaces = os.networkInterfaces();
@@ -35,15 +33,11 @@ function getLocalIPs() {
 }
 
 /**
- * Recursively gets all file paths within a user's directory.
- * @param {string} userUploadDir - The full path to the user's upload directory.
- * @param {string} [baseDir=''] - The base directory for relative paths.
- * @returns {Promise<string[]>} A promise that resolves to an array of relative file paths.
+ * Recursively gets file paths.
  */
 async function getAllFiles(userUploadDir, baseDir = '') {
     let files = [];
     try {
-        // Ensure we are reading from the specific user's directory
         const entries = await readdir(userUploadDir, { withFileTypes: true });
 
         for (const entry of entries) {
@@ -51,7 +45,6 @@ async function getAllFiles(userUploadDir, baseDir = '') {
             const relPath = path.join(baseDir, entry.name).replace(/\\/g, '/');
 
             if (entry.isDirectory()) {
-                // Pass the new fullPath and relPath to the recursive call
                 files = files.concat(await getAllFiles(fullPath, relPath));
             } else {
                 files.push(relPath);
@@ -59,7 +52,6 @@ async function getAllFiles(userUploadDir, baseDir = '') {
         }
     } catch (err) {
         if (err.code !== 'ENOENT') {
-            // ENOENT is fine (directory doesn't exist yet), but log other errors
             console.error(`Error reading directory ${userUploadDir}:`, err);
         }
     }
@@ -67,52 +59,50 @@ async function getAllFiles(userUploadDir, baseDir = '') {
 }
 
 /**
- * Generates a new v4 UUID.
- * @returns {Promise<string>} A promise that resolves to a new UUID.
+ * Generates a deterministic UUID based on username and password.
+ * This allows us to map a user/pass combo to the same folder without a database.
  */
-async function generateUuid() {
-    // Dynamically import the ESM 'uuid' package
-    const { v4: uuidv4 } = await import('uuid');
-    return uuidv4();
+function generateUserUuid(username, password) {
+    const hash = crypto.createHash('sha256')
+        .update(`${username.toLowerCase()}:${password}`)
+        .digest('hex');
+
+    // Format hex string into a UUID-like structure (8-4-4-4-12)
+    // We use version 4 (random) and variant 1 (RFC4122) bits for compatibility
+    const uuid = [
+        hash.substring(0, 8),
+        hash.substring(8, 12),
+        '4' + hash.substring(13, 16), // Version 4
+        ((parseInt(hash.substring(16, 18), 16) & 0x3f) | 0x80).toString(16) + hash.substring(18, 20), // Variant 1
+        hash.substring(20, 32)
+    ].join('-');
+
+    return uuid;
 }
-/**
- * Gets the system language for console logs.
- * @returns {('en'|'zh')} The determined language key.
- */
+
 function getSystemLang() {
     const systemLocale = Intl.DateTimeFormat().resolvedOptions().locale;
     return systemLocale.startsWith('zh') ? 'zh' : 'en';
 }
 
-/**
- * Gets the translation object for a given language key.
- * @param {('en'|'zh')} langKey - The language key.
- * @returns {object} The translation strings.
- */
 function getTranslations(langKey) {
     return translations[langKey] || translations['en'];
 }
-// A regex for v4 UUIDs
-const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /**
- * Validates if a string is a v4 UUID.
- * @param {string} uuid - The string to validate.
- * @returns {boolean} True if valid v4 UUID, false otherwise.
+ * Simple validation for credentials.
  */
-function isValidUuid(uuid) {
-    if (typeof uuid !== 'string') {
-        return false;
-    }
-    return UUID_V4_REGEX.test(uuid);
+function validateCredentials(username, password) {
+    const userRegex = /^[a-zA-Z0-9_-]{3,20}$/;
+    return userRegex.test(username) && password && password.length >= 6;
 }
 
 module.exports = {
     getLang,
     getLocalIPs,
     getAllFiles,
-    generateUuid,
+    generateUserUuid,
     getSystemLang,
     getTranslations,
-    isValidUuid
+    validateCredentials
 };
