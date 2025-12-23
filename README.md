@@ -1,66 +1,54 @@
 # LAN File Uploader
 
-A simple, self-hosted Node.js server for quickly uploading and sharing files on your local area network (LAN).
+A simple, self-hosted Node.js server for quickly uploading and sharing files on your local area network (LAN). 
 
-This version includes multi-user support, where each user is isolated by a unique UUID.
+This version features a decentralized user isolation system. Instead of a database, it uses a deterministic algorithm to map your credentials to a private storage space.
 
 [中文](README.zh.md)
 
 ## Features
 
-* **User-Friendly Login**: Access the service using a simple UUID.
-* **UUID Generation**: Generate a new UUID with a single click from the login page.
-* **Isolated Storage**: Files are stored in separate folders on the server based on the user's UUID.
-* **Simple Web Interface**: Upload files and folders directly from your browser.
-* **File Listing**: View all your uploaded files (including files in folders) on the main page.
-* **Secure Logout**: A logout button securely ends your session and *permanently deletes all your files*.
-* **Conflict Resolution**: Automatically renames files with a timestamp if a file with the same name already exists.
-* **Encoding Fix**: Correctly handles non-ASCII (e.g., Chinese) filenames.
-* **Multi-language**: Automatically detects browser language and switches between English (`en`) and Simplified Chinese (`zh`).
-* **Logging**: Records user activity (login, upload, download, logout) to log files in the `/logs` directory.
+* **Credential-Based Access**: Log in with any username and password. No registration required—existing credentials automatically restore access to your previous files.
+* **Deterministic Isolation**: The server uses a SHA-256 hash of your username and password to generate a unique, stable UUID. This ensures your files are kept in a private directory without needing a database.
+* **Isolated Storage**: Files are stored in separate folders on the server based on the generated UUID: `uploads/<USER-UUID>/`.
+* **Simple Web Interface**: Upload multiple files or entire folders directly from your browser.
+* **Secure Logout**: The logout process ends your session and *permanently deletes* all files associated with your credentials from the server.
+* **Automatic Conflict Resolution**: Renames files with a timestamp if a collision occurs.
+* **Multi-language Support**: Automatically detects browser language (supports English and Simplified Chinese).
+* **Activity Logging**: Records all actions (login, upload, download, logout) in the `/logs` directory using rotating log files.
 
 ## Requirements
 
-* [Node.js](https://nodejs.org/) (v14.14.0 or later, for `fs.rm`)
-* [npm](https://www.npmjs.com/) (usually included with Node.js)
+* [Node.js](https://nodejs.org/) (v14.14.0 or later)
+* [npm](https://www.npmjs.com/)
 
 ## Installation
 
-1.  Clone this repository or download the source code.
+1.  Clone or download the repository.
 2.  Open a terminal in the project's root directory.
-3.  Install the required dependencies:
-
+3.  Install dependencies:
     ```bash
     npm install
     ```
 
 ## How to Run
 
-1.  From your terminal, run the server:
-
+1.  Start the server:
     ```bash
     npm start
     ```
-    (This runs `node src/server.js` as defined in `package.json`)
-
-2.  The server will start and print the access URLs to the console:
-
+2.  The console will display the access URLs:
     ```
     🚀 Server started! (Listening on port 3000)
     Access the server at:
         - Local: http://localhost:3000
-        - LAN: [http://192.168.1.100:3000](http://192.168.1.100:3000)
+        - LAN: [http://192.168.](http://192.168.)x.x:3000
     ```
-
-3.  Open any of the provided URLs in a web browser.
-4.  You will be prompted to log in. You can paste an existing UUID or click "Generate New UUID" to create one.
-5.  Start uploading files. Your files are now only accessible to sessions using your UUID.
+3.  Open the URL in your browser.
+4.  Enter any **Username** (3-20 chars) and **Password** (min 6 chars) to log in.
 
 ## How It Works
 
-* **Server**: An `express` server listens on port `3000` on all available network interfaces (`0.0.0.0`).
-* **Authentication**: User sessions are managed by `express-session` and `cookie-parser`. A unique UUID, stored in the session, identifies the user.
-* **Uploads**: `multer` is used to handle `multipart/form-data` (file uploads).
-* **Storage**: Files are saved to a user-specific directory: `uploads/<USER-UUID>/`.
-* **File Serving**: The `/files` route is dynamically protected to only serve files from the logged-in user's specific directory.
-* **Logging**: `winston` is used to create rotating log files in the `logs/` directory, tracking user actions.
+* **Authentication**: The server combines the username and password into a string, hashes it with SHA-256, and formats it as a UUID v4. This UUID identifies your session and folder.
+* **File Serving**: The `/files` route is protected; it only serves files from the directory mapped to the currently logged-in user.
+* **Storage Management**: Files are saved to `uploads/<UUID>`. When you log out, the server recursively removes this specific directory to ensure privacy.
